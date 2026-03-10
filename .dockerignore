@@ -1,0 +1,8 @@
+node_modules
+dashboard
+.next
+.env
+*.md
+.git
+migrations
+run-migration.js

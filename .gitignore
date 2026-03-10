@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+dashboard/node_modules/
+
+# Build artifacts
+dashboard/.next/
+dist/
+
+# Environment (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Place any private docs under /private to keep them out of git
+private/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

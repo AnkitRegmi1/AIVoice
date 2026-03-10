@@ -1,0 +1,32 @@
+{
+  "name": "aivoice-voice-engine",
+  "version": "1.0.0",
+  "description": "Phase 1: Core Voice Engine - Twilio ↔ OpenAI Realtime API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "twilio",
+    "openai",
+    "realtime",
+    "voice",
+    "webrtc"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/websocket": "^11.0.0",
+    "alawmulaw": "^6.0.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
+    "googleapis": "^144.0.0",
+    "pg": "^8.13.0",
+    "wave-resampler": "^1.0.0",
+    "ws": "^8.18.0"
+  }
+}
