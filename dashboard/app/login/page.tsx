@@ -1,85 +1,100 @@
 "use client";
 
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/inbox";
 
   return (
-    <main className="mx-auto max-w-sm px-6 py-12">
-      <h2 className="text-xl font-semibold text-slate-100 mb-4">Sign in</h2>
-      <p className="text-slate-500 text-sm mb-4">
-        Demo: use any email and password <strong>demo</strong> (lowercase).
-      </p>
-      {error && (
-        <p className="mb-4 rounded bg-red-900/50 border border-red-700 text-red-200 px-3 py-2 text-sm">
-          {error}
+    <main className="app-shell">
+      <section className="mx-auto max-w-lg app-panel px-6 py-8 sm:px-8">
+        <p className="app-label">Secure access</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-900" style={{ fontFamily: "var(--font-display)" }}>
+          Sign in
+        </h1>
+        <p className="mt-3 text-sm leading-7 text-slate-600">
+          Enter your business email and password to open the Tranquil AI dashboard.
         </p>
-      )}
-      <form
-        className="space-y-4"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setError("");
-          setLoading(true);
-          const result = await signIn("credentials", {
-            email,
-            password,
-            callbackUrl,
-            redirect: false,
-          });
-          setLoading(false);
-          if (result?.error) {
-            setError("Invalid email or password. Use password: demo");
-            return;
-          }
-          if (result?.ok) {
-            router.push(callbackUrl);
-            router.refresh();
-            return;
-          }
-        }}
-      >
-        <div>
-          <label htmlFor="email" className="block text-sm text-slate-400 mb-1">Email</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
-            required
-            autoComplete="email"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm text-slate-400 mb-1">Password</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
-            required
-            autoComplete="current-password"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500 disabled:opacity-50"
+
+        {error ? (
+          <p className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+            {error}
+          </p>
+        ) : null}
+
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError("");
+            setLoading(true);
+            const result = await signIn("credentials", {
+              email,
+              password,
+              callbackUrl,
+              redirect: true,
+            });
+            setLoading(false);
+            if (result?.error) {
+              setError("Invalid email or password.");
+              return;
+            }
+          }}
         >
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+          <div>
+            <label htmlFor="email" className="app-field-label">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="app-input"
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="app-field-label">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="app-input"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          <button type="submit" disabled={loading} className="app-button-primary w-full disabled:opacity-60">
+            {loading ? "Signing in" : "Sign in"}
+          </button>
+        </form>
+      </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="app-shell">
+          <section className="mx-auto max-w-lg app-panel px-6 py-8 text-sm text-slate-500">Loading login...</section>
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

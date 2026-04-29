@@ -3,11 +3,215 @@
 @tailwind utilities;
 
 :root {
-  --background: #0f172a;
-  --foreground: #e2e8f0;
+  --background: #f6f5f1;
+  --background-strong: #efeee8;
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-solid: #ffffff;
+  --surface-soft: #f8f7f3;
+  --foreground: #192132;
+  --muted: #697182;
+  --muted-strong: #434c5d;
+  --border: rgba(25, 33, 50, 0.08);
+  --border-strong: rgba(91, 79, 241, 0.18);
+  --accent: #5b4ff1;
+  --accent-strong: #4336f3;
+  --accent-soft: rgba(91, 79, 241, 0.08);
+  --success: #0f9f6e;
+  --danger: #cf305f;
+  --shadow: 0 18px 60px rgba(27, 35, 58, 0.08);
+}
+
+html {
+  background: var(--background);
 }
 
 body {
+  min-height: 100vh;
   color: var(--foreground);
-  background: var(--background);
+  background:
+    radial-gradient(circle at top left, rgba(91, 79, 241, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(31, 169, 255, 0.06), transparent 26%),
+    linear-gradient(180deg, #fbfbf8 0%, #f4f2eb 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(25, 33, 50, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25, 33, 50, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 50%);
+  opacity: 0.45;
+}
+
+::selection {
+  background: rgba(91, 79, 241, 0.16);
+  color: var(--foreground);
+}
+
+@layer base {
+  a,
+  button,
+  input,
+  textarea {
+    transition:
+      color 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      transform 160ms ease,
+      opacity 160ms ease;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply relative mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8;
+  }
+
+  .app-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    @apply rounded-[28px] backdrop-blur-sm;
+  }
+
+  .app-panel-soft {
+    background: var(--surface-soft);
+    border: 1px solid rgba(25, 33, 50, 0.06);
+    @apply rounded-[24px];
+  }
+
+  .app-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.24em];
+    color: var(--muted);
+  }
+
+  .app-title {
+    @apply text-3xl font-semibold tracking-[-0.04em] sm:text-4xl;
+  }
+
+  .app-subtitle {
+    @apply text-sm leading-7 sm:text-[15px];
+    color: var(--muted);
+  }
+
+  .app-nav-link {
+    @apply rounded-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em];
+    color: var(--muted-strong);
+  }
+
+  .app-nav-link:hover {
+    background: rgba(25, 33, 50, 0.05);
+    color: var(--foreground);
+  }
+
+  .app-nav-link-active {
+    background: rgba(25, 33, 50, 0.06);
+    color: var(--foreground);
+  }
+
+  .app-logo-badge {
+    background: linear-gradient(135deg, #685af8 0%, #4e44eb 100%);
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-500/30;
+  }
+
+  .app-chip {
+    background: rgba(255, 255, 255, 0.76);
+    border: 1px solid rgba(25, 33, 50, 0.08);
+    @apply inline-flex items-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em];
+    color: var(--muted-strong);
+  }
+
+  .app-button-primary {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+    box-shadow: 0 14px 32px rgba(91, 79, 241, 0.22);
+    @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white;
+  }
+
+  .app-button-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 38px rgba(91, 79, 241, 0.28);
+  }
+
+  .app-button-secondary {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(25, 33, 50, 0.1);
+    @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em];
+    color: var(--foreground);
+  }
+
+  .app-button-secondary:hover {
+    background: rgba(255, 255, 255, 0.94);
+  }
+
+  .app-button-ghost {
+    background: rgba(25, 33, 50, 0.04);
+    border: 1px solid rgba(25, 33, 50, 0.07);
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em];
+    color: var(--muted-strong);
+  }
+
+  .app-button-ghost:hover {
+    background: rgba(25, 33, 50, 0.08);
+    color: var(--foreground);
+  }
+
+  .app-field-label {
+    @apply mb-2 block text-xs font-semibold uppercase tracking-[0.18em];
+    color: var(--muted);
+  }
+
+  .app-input,
+  .app-textarea {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(25, 33, 50, 0.1);
+    color: var(--foreground);
+    @apply w-full rounded-2xl px-4 py-3 text-sm outline-none;
+  }
+
+  .app-input::placeholder,
+  .app-textarea::placeholder {
+    color: rgba(67, 76, 93, 0.55);
+  }
+
+  .app-input:focus,
+  .app-textarea:focus {
+    border-color: rgba(91, 79, 241, 0.42);
+    box-shadow: 0 0 0 4px rgba(91, 79, 241, 0.08);
+  }
+
+  .app-stat {
+    @apply flex flex-col gap-2 rounded-[24px] px-5 py-5;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(25, 33, 50, 0.06);
+  }
+
+  .app-stat-value {
+    @apply text-3xl font-semibold tracking-[-0.05em];
+  }
+
+  .app-stat-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.24em];
+    color: var(--muted);
+  }
+
+  .app-section-heading {
+    @apply text-2xl font-semibold tracking-[-0.04em];
+  }
+
+  .app-card-title {
+    @apply text-lg font-semibold tracking-[-0.03em];
+  }
+
+  .app-muted {
+    color: var(--muted);
+  }
+
+  .app-divider {
+    border-color: rgba(25, 33, 50, 0.08);
+  }
 }

@@ -1,33 +1,78 @@
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { authOptions } from "@/lib/auth";
-import { getBusinessInfo } from "@/lib/db";
+import { getServerSession } from "next-auth";
 import { BusinessInfoForm } from "@/components/BusinessInfoForm";
 import { ConnectGoogleCalendar } from "@/components/ConnectGoogleCalendar";
+import { DocumentKnowledgePanel } from "@/components/DocumentKnowledgePanel";
+import { authOptions } from "@/lib/auth";
+import { getClinicTenantId } from "@/lib/clinic-tenant";
+import {
+  getBusinessInfo,
+  getDocuments,
+  getGoogleCalendarConnection,
+} from "@/lib/db";
 
 export default async function BusinessPage() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/");
-  const tenantId = (session.user as { tenantId?: number }).tenantId ?? 1;
-  const initial = await getBusinessInfo(tenantId);
+  if (!session?.user) {
+    return (
+      <main className="app-shell">
+        <section className="app-panel px-6 py-8 sm:px-8">
+          <p className="app-label">Authentication required</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-900" style={{ fontFamily: "var(--font-display)" }}>
+            Please sign in first
+          </h1>
+          <p className="mt-3 text-sm leading-7 text-slate-600">
+            You need to sign in to manage business info and knowledge documents.
+          </p>
+          <div className="mt-6">
+            <Link href="/login?callbackUrl=%2Fbusiness" className="app-button-primary">
+              Go to sign in
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const tenantId = getClinicTenantId();
+  const [initial, documents, googleCalendarConnection] = await Promise.all([
+    getBusinessInfo(tenantId),
+    getDocuments(tenantId),
+    getGoogleCalendarConnection(tenantId),
+  ]);
+
+  const hasGoogleOAuthConfig = Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()
+  );
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-8">
-      <div className="mb-6 flex items-center gap-4">
-        <Link href="/" className="text-slate-400 hover:text-slate-200 text-sm">
-          ← Back
-        </Link>
-      </div>
-      <h2 className="text-2xl font-semibold text-slate-100 mb-2">Business info</h2>
-      <p className="text-slate-400 mb-6">
-        Update what Sarah tells callers when they ask about your business (hours, services, location). Changes apply to the next call.
-      </p>
-      <BusinessInfoForm initial={initial} />
+    <main className="app-shell space-y-6">
+      <section className="app-panel px-6 py-8 sm:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="max-w-2xl">
+            <p className="app-label">Business module</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-900" style={{ fontFamily: "var(--font-display)" }}>
+              Business info
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Manage the hours, service details, uploaded documents, and optional integrations that
+              shape how the voice receptionist answers callers.
+            </p>
+          </div>
+          <Link href="/inbox" className="app-button-secondary">
+            Back to inbox
+          </Link>
+        </div>
+      </section>
 
-      <div className="mt-10">
-        <ConnectGoogleCalendar />
-      </div>
+      <BusinessInfoForm initial={initial} />
+      <DocumentKnowledgePanel initialDocuments={documents} />
+
+      <ConnectGoogleCalendar
+        connected={Boolean(googleCalendarConnection)}
+        connectedAt={googleCalendarConnection?.updated_at ?? null}
+        hasGoogleOAuthConfig={hasGoogleOAuthConfig}
+      />
     </main>
   );
 }

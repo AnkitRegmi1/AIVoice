@@ -15,7 +15,7 @@ At a high level you will need to:
   - The voice provider (e.g. a telephony API key / webhook URL).
   - The AI provider (API key).
   - A SQL database connection URL.
-- Run the Node.js voice engine from the project root.
+- Run the Node.js voice engine from the `server/` directory.
 - Run the Next.js dashboard from the `dashboard/` directory.
 
 Refer to your own private deployment notes for exact environment variable values and hosting details.

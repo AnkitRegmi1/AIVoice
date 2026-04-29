@@ -19,9 +19,21 @@ if (!DATABASE_URL) {
 const migrationsDir = join(__dirname, "migrations");
 const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
 
+function clientSsl(connectionString) {
+  if (/localhost|127\.0\.0\.1/.test(connectionString)) return undefined;
+  if (
+    connectionString.includes("amazonaws.com") ||
+    connectionString.includes("supabase.co") ||
+    connectionString.includes("pooler.supabase.com")
+  ) {
+    return { rejectUnauthorized: false };
+  }
+  return undefined;
+}
+
 const client = new pg.Client({
   connectionString: DATABASE_URL,
-  ssl: DATABASE_URL.includes("amazonaws.com") ? { rejectUnauthorized: false } : undefined,
+  ssl: clientSsl(DATABASE_URL),
 });
 
 try {

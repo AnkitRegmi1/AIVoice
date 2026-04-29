@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { BusinessInfoRow } from "@/lib/db";
 
 const empty: BusinessInfoRow | null = {
   tenant_id: 1,
+  business_name: null,
   business_hours: null,
   services: null,
   address: null,
@@ -33,6 +34,7 @@ export function BusinessInfoForm({ initial }: { initial: BusinessInfoRow | null 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          businessName: data.business_name || "",
           businessHours: data.business_hours || "",
           services: data.services || "",
           address: data.address || "",
@@ -58,107 +60,136 @@ export function BusinessInfoForm({ initial }: { initial: BusinessInfoRow | null 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-      <p className="text-slate-400 text-sm">
-        This is what callers hear when they ask about your business. Sarah uses it to answer questions about hours, services, and location.
-      </p>
-
-      <div>
-        <label htmlFor="business_hours" className="block text-sm font-medium text-slate-300 mb-1">
-          Business hours
-        </label>
-        <textarea
-          id="business_hours"
-          rows={2}
-          className="w-full rounded-lg border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          value={data?.business_hours ?? ""}
-          onChange={(e) => update("business_hours", e.target.value || null)}
-          placeholder="e.g. Monday to Friday 9 AM to 6 PM, Saturday 10 AM to 4 PM. Closed Sunday."
-        />
+    <section className="app-panel p-6 sm:p-8">
+      <div className="mb-6 space-y-3">
+        <p className="app-label">Business profile</p>
+        <h3 className="app-card-title text-slate-900">Business info</h3>
+        <p className="text-sm leading-7 text-slate-600">
+          This is the core information Sarah uses to answer business questions on the next call.
+        </p>
       </div>
 
-      <div>
-        <label htmlFor="services" className="block text-sm font-medium text-slate-300 mb-1">
-          Services
-        </label>
-        <textarea
-          id="services"
-          rows={2}
-          className="w-full rounded-lg border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          value={data?.services ?? ""}
-          onChange={(e) => update("services", e.target.value || null)}
-          placeholder="e.g. Swedish massage, deep tissue, sports massage, relaxation massage, gift cards."
-        />
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label htmlFor="business_name" className="app-field-label">
+            Business name
+          </label>
+          <input
+            type="text"
+            id="business_name"
+            className="app-input"
+            value={data?.business_name ?? ""}
+            onChange={(e) => update("business_name", e.target.value || null)}
+            placeholder="Tranquil Touch Massage Spa"
+          />
+          <p className="mt-1.5 text-xs leading-6 text-slate-500">
+            Sarah uses this when greeting callers and confirming appointments.
+          </p>
+        </div>
 
-      <div>
-        <label htmlFor="address" className="block text-sm font-medium text-slate-300 mb-1">
-          Address / location
-        </label>
-        <input
-          type="text"
-          id="address"
-          className="w-full rounded-lg border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          value={data?.address ?? ""}
-          onChange={(e) => update("address", e.target.value || null)}
-          placeholder="e.g. 123 Main Street"
-        />
-      </div>
+        <div>
+          <label htmlFor="business_hours" className="app-field-label">
+            Business hours
+          </label>
+          <textarea
+            id="business_hours"
+            rows={3}
+            className="app-textarea"
+            value={data?.business_hours ?? ""}
+            onChange={(e) => update("business_hours", e.target.value || null)}
+            placeholder="Monday to Friday 9 AM to 6 PM. Saturday 10 AM to 4 PM. Closed Sunday."
+          />
+        </div>
 
-      <div>
-        <label htmlFor="phone" className="block text-sm font-medium text-slate-300 mb-1">
-          Phone (optional)
-        </label>
-        <input
-          type="text"
-          id="phone"
-          className="w-full rounded-lg border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          value={data?.phone ?? ""}
-          onChange={(e) => update("phone", e.target.value || null)}
-          placeholder="e.g. (555) 123-4567"
-        />
-      </div>
+        <div>
+          <label htmlFor="services" className="app-field-label">
+            Services
+          </label>
+          <textarea
+            id="services"
+            rows={3}
+            className="app-textarea"
+            value={data?.services ?? ""}
+            onChange={(e) => update("services", e.target.value || null)}
+            placeholder="Swedish massage, deep tissue, sports massage, relaxation massage, gift cards."
+          />
+        </div>
 
-      <div>
-        <label htmlFor="extra_notes" className="block text-sm font-medium text-slate-300 mb-1">
-          Booking / other info
-        </label>
-        <textarea
-          id="extra_notes"
-          rows={2}
-          className="w-full rounded-lg border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          value={data?.extra_notes ?? ""}
-          onChange={(e) => update("extra_notes", e.target.value || null)}
-          placeholder="e.g. Callers can book now over the phone or call back later."
-        />
-      </div>
+        <div className="grid gap-5 md:grid-cols-2">
+          <div>
+            <label htmlFor="address" className="app-field-label">
+              Address or location
+            </label>
+            <input
+              type="text"
+              id="address"
+              className="app-input"
+              value={data?.address ?? ""}
+              onChange={(e) => update("address", e.target.value || null)}
+              placeholder="123 Main Street"
+            />
+          </div>
 
-      <div>
-        <label htmlFor="custom_instructions" className="block text-sm font-medium text-slate-300 mb-1">
-          Knowledge Base — custom instructions (optional)
-        </label>
-        <textarea
-          id="custom_instructions"
-          rows={4}
-          className="w-full rounded-lg border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          value={data?.custom_instructions ?? ""}
-          onChange={(e) => update("custom_instructions", e.target.value || null)}
-          placeholder="e.g. Always mention we have free parking. Keep answers under 2 sentences. If they ask about pricing, say rates vary by service and suggest they call or visit."
-        />
-        <p className="text-slate-500 text-xs mt-1">Sarah will follow these rules in addition to the business info above. One instruction per line or short paragraph.</p>
-      </div>
+          <div>
+            <label htmlFor="phone" className="app-field-label">
+              Phone
+            </label>
+            <input
+              type="text"
+              id="phone"
+              className="app-input"
+              value={data?.phone ?? ""}
+              onChange={(e) => update("phone", e.target.value || null)}
+              placeholder="(555) 123-4567"
+            />
+          </div>
+        </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-        {message === "saved" && <span className="text-green-400 text-sm">Saved. Callers will hear this on the next call.</span>}
-        {message === "error" && <span className="text-red-400 text-sm">Could not save. Try again.</span>}
-      </div>
-    </form>
+        <div>
+          <label htmlFor="extra_notes" className="app-field-label">
+            Booking notes
+          </label>
+          <textarea
+            id="extra_notes"
+            rows={3}
+            className="app-textarea"
+            value={data?.extra_notes ?? ""}
+            onChange={(e) => update("extra_notes", e.target.value || null)}
+            placeholder="Callers can book now over the phone or call back later."
+          />
+        </div>
+
+        <div>
+          <label htmlFor="custom_instructions" className="app-field-label">
+            Knowledge base rules
+          </label>
+          <textarea
+            id="custom_instructions"
+            rows={5}
+            className="app-textarea"
+            value={data?.custom_instructions ?? ""}
+            onChange={(e) => update("custom_instructions", e.target.value || null)}
+            placeholder="Always mention free parking. Keep answers under two sentences. If asked about pricing, say rates vary by service."
+          />
+          <p className="mt-2 text-xs leading-6 text-slate-500">
+            These rules are added on top of the core business info during live calls.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button type="submit" disabled={saving} className="app-button-primary disabled:opacity-60">
+            {saving ? "Saving" : "Save updates"}
+          </button>
+          {message === "saved" ? (
+            <span className="text-sm font-medium text-emerald-700">
+              Saved. The next caller will hear the updated info.
+            </span>
+          ) : null}
+          {message === "error" ? (
+            <span className="text-sm font-medium text-rose-600">Could not save. Try again.</span>
+          ) : null}
+        </div>
+      </form>
+    </section>
   );
 }

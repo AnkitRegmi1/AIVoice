@@ -4,6 +4,7 @@ dashboard/node_modules/
 
 # Build artifacts
 dashboard/.next/
+dashboard/tsconfig.tsbuildinfo
 dist/
 
 # Environment (never commit secrets)

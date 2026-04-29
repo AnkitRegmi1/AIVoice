@@ -1,7 +1,8 @@
 import type { AppointmentRow } from "@/lib/db";
+import type { GoogleCalendarEvent } from "@/lib/google-calendar";
 
 function formatTime(d: Date | string) {
-  return new Date(d).toLocaleTimeString(undefined, {
+  return new Date(d).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -21,7 +22,6 @@ function groupByDay(appointments: AppointmentRow[]): Map<string, AppointmentRow[
   return map;
 }
 
-/** Build calendar days for a month (with leading empty slots for grid) */
 function monthDays(year: number, month: number): (number | null)[] {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
@@ -33,84 +33,147 @@ function monthDays(year: number, month: number): (number | null)[] {
   return result;
 }
 
+function googleEventsByDay(events: GoogleCalendarEvent[]): Map<string, GoogleCalendarEvent[]> {
+  const map = new Map<string, GoogleCalendarEvent[]>();
+  for (const e of events) {
+    const d = new Date(e.start);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(e);
+  }
+  return map;
+}
+
 interface CalendarViewProps {
   appointments: AppointmentRow[];
   byDay?: Map<string, AppointmentRow[]>;
+  googleEvents?: GoogleCalendarEvent[];
 }
 
-export function CalendarView({ appointments, byDay: byDayProp }: CalendarViewProps) {
+const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export function CalendarView({ appointments, byDay: byDayProp, googleEvents = [] }: CalendarViewProps) {
   const byDay = byDayProp ?? groupByDay(appointments);
+  const gcalByDay = googleEventsByDay(googleEvents);
   const now = new Date();
-  const thisMonth = monthDays(now.getFullYear(), now.getMonth());
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1);
-  const nextMonthDays = monthDays(nextMonth.getFullYear(), nextMonth.getMonth());
+  const viewYear = now.getFullYear();
+  const viewMonth = now.getMonth();
+  const monthLabel = new Date(viewYear, viewMonth).toLocaleString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  const days = monthDays(viewYear, viewMonth);
 
-  const monthLabel = (year: number, month: number) =>
-    new Date(year, month).toLocaleString(undefined, { month: "long", year: "numeric" });
-
-  const dayCell = (year: number, month: number, day: number | null, index: number) => {
-    if (day === null)
+  const dayCell = (day: number | null, index: number) => {
+    if (day === null) {
       return (
-        <div key={`empty-${year}-${month}-${index}`} className="rounded bg-slate-800/30 p-2 min-h-[80px]" />
+        <div
+          key={`empty-${viewYear}-${viewMonth}-${index}`}
+          className="min-h-[116px] rounded-[20px] border border-dashed border-slate-200 bg-white/30"
+        />
       );
-    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+
+    const key = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const dayAppointments = byDay.get(key) ?? [];
+    const dayGcal = gcalByDay.get(key) ?? [];
     const isToday =
-      now.getFullYear() === year && now.getMonth() === month && now.getDate() === day;
+      now.getFullYear() === viewYear &&
+      now.getMonth() === viewMonth &&
+      now.getDate() === day;
+
+    const totalCount = dayAppointments.length + dayGcal.length;
+
     return (
       <div
         key={key}
-        className={`rounded border p-2 min-h-[80px] ${
-          isToday ? "border-indigo-500 bg-indigo-500/10" : "border-slate-700 bg-slate-800/50"
+        className={`min-h-[116px] rounded-[20px] border p-3 ${
+          isToday
+            ? "border-indigo-300 bg-indigo-50 shadow-[0_12px_28px_rgba(91,79,241,0.12)]"
+            : "border-slate-200 bg-white/80"
         }`}
       >
-        <div className="text-slate-400 text-sm font-medium mb-1">{day}</div>
-        <div className="space-y-1">
-          {dayAppointments.map((a) => (
-            <div key={a.id} className="text-xs text-slate-200 truncate" title={a.caller_name}>
-              <span className="font-medium">{formatTime(a.scheduled_at)}</span> {a.caller_name}
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-semibold text-slate-900">{day}</span>
+          {totalCount > 0 ? (
+            <span className="rounded-full bg-slate-900/[0.05] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {totalCount} event{totalCount !== 1 ? "s" : ""}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          {dayAppointments.slice(0, 2).map((a) => {
+            const summary = a.call_summary?.trim() || null;
+            const tip = [
+              `${formatTime(a.scheduled_at)} - ${a.caller_name}`,
+              summary ? `Call: ${summary}` : a.call_sid ? "Summary saves when the call ends." : "",
+            ]
+              .filter(Boolean)
+              .join("\n\n");
+            return (
+              <div key={a.id} className="rounded-2xl bg-indigo-50 px-3 py-2" title={tip}>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-600">
+                  {formatTime(a.scheduled_at)}
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-slate-900">{a.caller_name}</p>
+                <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-slate-500">
+                  {summary ?? "Phone booking"}
+                </p>
+              </div>
+            );
+          })}
+
+          {dayGcal.slice(0, 2).map((e) => (
+            <div
+              key={e.id}
+              className="rounded-2xl bg-emerald-50 px-3 py-2"
+              title={`${e.allDay ? "All day" : formatTime(e.start)} – ${e.summary}`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                {e.allDay ? "All day" : formatTime(e.start)}
+              </p>
+              <p className="mt-0.5 line-clamp-1 text-sm font-medium text-slate-900">{e.summary}</p>
+              <p className="mt-0.5 text-xs leading-5 text-slate-500">Google Calendar</p>
             </div>
           ))}
+
+          {totalCount > 4 ? (
+            <p className="pl-1 text-[10px] text-slate-400">+{totalCount - 4} more</p>
+          ) : null}
         </div>
       </div>
     );
   };
 
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h4 className="text-slate-300 font-medium mb-2">
-          {monthLabel(now.getFullYear(), now.getMonth())}
-        </h4>
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {weekDays.map((w) => (
-            <div key={w} className="text-center text-slate-500 text-xs font-medium py-1">
-              {w}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {thisMonth.map((day, i) => dayCell(now.getFullYear(), now.getMonth(), day, i))}
-        </div>
+    <div className="app-panel p-5 sm:p-6">
+      <div className="mb-5 text-center">
+        <p className="app-label">Calendar</p>
+        <h4 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-900">{monthLabel}</h4>
       </div>
-      <div>
-        <h4 className="text-slate-300 font-medium mb-2">
-          {monthLabel(nextMonth.getFullYear(), nextMonth.getMonth())}
-        </h4>
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {weekDays.map((w) => (
-            <div key={w} className="text-center text-slate-500 text-xs font-medium py-1">
-              {w}
-            </div>
-          ))}
+
+      <div className="mb-2 grid grid-cols-7 gap-2">
+        {WEEK_DAYS.map((w) => (
+          <div key={w} className="py-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            {w}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-2">{days.map((day, i) => dayCell(day, i))}</div>
+
+      <div className="mt-4 flex flex-wrap gap-4 border-t border-slate-100 pt-4">
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-full bg-indigo-200" />
+          <span className="text-[11px] text-slate-500">Phone bookings</span>
         </div>
-        <div className="grid grid-cols-7 gap-1">
-          {nextMonthDays.map((day, i) =>
-            dayCell(nextMonth.getFullYear(), nextMonth.getMonth(), day, i)
-          )}
-        </div>
+        {googleEvents.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-emerald-200" />
+            <span className="text-[11px] text-slate-500">Google Calendar</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -1,7 +1,10 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { getClinicTenantId } from "@/lib/clinic-tenant";
 import { saveGoogleTokens } from "@/lib/db";
+
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL ?? "demo@test.com").trim().toLowerCase();
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -35,24 +38,13 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, account }) {
-      if (user) token.tenantId = 1;
+      token.tenantId = getClinicTenantId();
 
-      // Simple admin flag: if ADMIN_EMAILS is set, only those emails are admins.
-      // If not set, treat all users as admins (dev mode).
-      const adminEnv = process.env.ADMIN_EMAILS ?? "";
-      const adminEmails = adminEnv
-        .split(",")
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
       const email = (token.email ?? user?.email ?? "").toLowerCase();
-      if (adminEmails.length > 0) {
-        (token as any).isAdmin = adminEmails.includes(email);
-      } else {
-        (token as any).isAdmin = true;
-      }
+      (token as any).isAdmin = email === ADMIN_EMAIL;
 
       if (account?.provider === "google" && account.refresh_token) {
-        await saveGoogleTokens(1, account.refresh_token, "primary");
+        await saveGoogleTokens(getClinicTenantId(), account.refresh_token, "primary");
       }
       return token;
     },

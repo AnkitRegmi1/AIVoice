@@ -10,10 +10,23 @@ const { Pool } = pg;
 const DATABASE_URL = process.env.DATABASE_URL;
 let pool = null;
 
+/** RDS and Supabase require TLS; local Postgres typically does not. */
+export function usePostgresSsl(connectionString) {
+  if (!connectionString || /localhost|127\.0\.0\.1/.test(connectionString)) return undefined;
+  if (
+    connectionString.includes("amazonaws.com") ||
+    connectionString.includes("supabase.co") ||
+    connectionString.includes("pooler.supabase.com")
+  ) {
+    return { rejectUnauthorized: false };
+  }
+  return undefined;
+}
+
 if (DATABASE_URL) {
   pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: DATABASE_URL.includes("amazonaws.com") ? { rejectUnauthorized: false } : undefined,
+    ssl: usePostgresSsl(DATABASE_URL),
   });
   pool.on("error", (err) => console.error("DB pool error", err));
 }
@@ -123,7 +136,7 @@ export async function getBookedSlotsForDate(tenantId, dateStr) {
 export async function getBusinessInfo(tenantId = 1) {
   if (!pool) return null;
   const result = await query(
-    `SELECT tenant_id, business_hours, services, address, phone, extra_notes, custom_instructions, updated_at
+    `SELECT tenant_id, business_name, business_hours, services, address, phone, extra_notes, custom_instructions, updated_at
      FROM business_info WHERE tenant_id = $1`,
     [tenantId]
   );
@@ -199,6 +212,56 @@ export async function insertTenant({ name, twilioPhone = null }) {
     [name, twilioPhone]
   );
   return result.rows[0]?.id ?? null;
+}
+
+/**
+ * Search uploaded knowledge chunks for a tenant using PostgreSQL full-text search.
+ * Returns top matches with filename for grounding AI answers.
+ */
+export async function searchKnowledge(tenantId, question, limit = 4) {
+  if (!pool || !question?.trim()) return [];
+  const normalized = question.trim();
+
+  try {
+    const result = await query(
+      `SELECT dc.content, dc.chunk_index, d.filename,
+              ts_rank_cd(to_tsvector('english', dc.content), plainto_tsquery('english', $2)) AS rank
+       FROM document_chunks dc
+       INNER JOIN documents d ON d.id = dc.document_id
+       WHERE dc.tenant_id = $1
+         AND to_tsvector('english', dc.content) @@ plainto_tsquery('english', $2)
+       ORDER BY rank DESC, dc.chunk_index ASC
+       LIMIT $3`,
+      [tenantId, normalized, limit]
+    );
+    if (result.rows.length > 0) return result.rows;
+  } catch {
+    // Fall through to simple keyword matching below.
+  }
+
+  const terms = normalized
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((term) => term.length >= 3)
+    .slice(0, 6);
+
+  if (terms.length === 0) return [];
+
+  const likeClauses = terms.map((_, index) => `LOWER(dc.content) LIKE $${index + 2}`);
+  const params = [tenantId, ...terms.map((term) => `%${term}%`), limit];
+  const limitIndex = params.length;
+
+  const fallback = await query(
+    `SELECT dc.content, dc.chunk_index, d.filename
+     FROM document_chunks dc
+     INNER JOIN documents d ON d.id = dc.document_id
+     WHERE dc.tenant_id = $1
+       AND (${likeClauses.join(" OR ")})
+     ORDER BY dc.created_at DESC, dc.chunk_index ASC
+     LIMIT $${limitIndex}`,
+    params
+  );
+  return fallback.rows;
 }
 
 export { pool };

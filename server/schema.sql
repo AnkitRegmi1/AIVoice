@@ -1,11 +1,9 @@
--- Run this once against your PostgreSQL database (e.g. RDS).
-
 -- Businesses that use the voice agent (one per phone number / account)
 CREATE TABLE IF NOT EXISTS tenants (
   id         SERIAL PRIMARY KEY,
   name       TEXT NOT NULL,
   -- Optional: Twilio phone number in E.164 format (e.g. +15551234567).
-  -- Used in Phase 3+ to route calls to the correct tenant.
+  
   twilio_phone TEXT UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -14,8 +12,8 @@ CREATE TABLE IF NOT EXISTS tenants (
 CREATE TABLE IF NOT EXISTS calls (
   id          SERIAL PRIMARY KEY,
   tenant_id   INTEGER NOT NULL REFERENCES tenants(id),
-  call_sid    TEXT,                    -- Twilio Call SID (e.g. CA...)
-  caller_name TEXT,                    -- Caller's full name if they provided it
+  call_sid    TEXT,                    -- Twilio Call SID 
+  caller_name TEXT,                    -- Caller's full name 
   summary     TEXT,                    -- Full summary of the call
   transcript  TEXT,                    -- Optional full or partial transcript
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -37,12 +35,49 @@ CREATE TABLE IF NOT EXISTS appointments (
 CREATE INDEX IF NOT EXISTS idx_appointments_tenant_id ON appointments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_scheduled_at ON appointments(tenant_id, scheduled_at);
 
--- Default tenant for Phase 2 (single-tenant); Phase 3 will add more
+
 INSERT INTO tenants (id, name) VALUES (1, 'Default Clinic')
 ON CONFLICT (id) DO NOTHING;
 
 -- Add caller_name to calls if table already existed without it
 ALTER TABLE calls ADD COLUMN IF NOT EXISTS caller_name TEXT;
 
--- Phase 3: ensure twilio_phone exists on tenants for multi-number routing
+
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS twilio_phone TEXT UNIQUE;
+
+-- Stored Google Calendar connection per tenant
+CREATE TABLE IF NOT EXISTS tenant_google_tokens (
+  tenant_id     INTEGER PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  refresh_token TEXT NOT NULL,
+  calendar_id   TEXT NOT NULL DEFAULT 'primary',
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Uploaded documents for business knowledge / RAG
+CREATE TABLE IF NOT EXISTS documents (
+  id            SERIAL PRIMARY KEY,
+  tenant_id     INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  filename      TEXT NOT NULL,
+  mime_type     TEXT,
+  raw_text      TEXT NOT NULL,
+  uploaded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_tenant_id ON documents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_documents_uploaded_at ON documents(uploaded_at DESC);
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+  id            SERIAL PRIMARY KEY,
+  document_id   INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  tenant_id     INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  chunk_index   INTEGER NOT NULL,
+  content       TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_chunks_tenant_id ON document_chunks(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_chunk_index ON document_chunks(document_id, chunk_index);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_search
+  ON document_chunks
+  USING GIN (to_tsvector('english', content));

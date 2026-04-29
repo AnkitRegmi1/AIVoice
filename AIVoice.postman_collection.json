@@ -1,0 +1,107 @@
+{
+  "info": {
+    "name": "AIVoice",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "All HTTP endpoints for the AIVoice voice engine (server/) and dashboard (dashboard/)."
+  },
+  "variable": [
+    { "key": "server_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "dashboard_url", "value": "http://localhost:3001", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Server (Voice Engine)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{server_url}}/",
+            "description": "Confirms the voice engine is running. No auth required.\n\nExpected: 200 { ok: true, service: 'aivoice-voice-engine', phase: 1, provider: 'openai-realtime' }"
+          }
+        },
+        {
+          "name": "GET /voice  (TwiML diagnostic)",
+          "request": {
+            "method": "GET",
+            "url": "{{server_url}}/voice",
+            "description": "Returns TwiML XML that connects to /stream with tenantId=1.\nThis is what Twilio calls when a phone call comes in (diagnostic version hardcoded to tenant 1).\n\nExpected: 200 application/xml\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response><Connect><Stream url=\"wss://…/stream?tenantId=1\" /></Connect></Response>"
+          }
+        },
+        {
+          "name": "POST /voice  (Twilio webhook)",
+          "request": {
+            "method": "POST",
+            "url": "{{server_url}}/voice",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "To", "value": "+15551234567", "description": "The Twilio phone number that was dialed (E.164). Server maps this to a tenant." },
+                { "key": "From", "value": "+15559876543", "description": "Caller's number (Twilio includes this; server ignores it but Twilio always sends it)." },
+                { "key": "CallSid", "value": "CAtest00000000000000000000000000001", "description": "Twilio call ID (optional for this test)." }
+              ]
+            },
+            "description": "Simulates Twilio calling your webhook when someone dials your number.\nServer parses the 'To' field, looks up the tenant by phone number, then returns TwiML pointing to /stream?tenantId=<id>.\n\nExpected: 200 application/xml with a <Connect><Stream> TwiML response.\nIf 'To' doesn't match any tenant in DB, falls back to tenantId=1."
+          }
+        },
+        {
+          "name": "WS /stream  (Twilio Media Stream)",
+          "request": {
+            "method": "GET",
+            "url": "{{server_url}}/stream?tenantId=1",
+            "description": "WebSocket endpoint. Twilio connects here to stream real-time audio.\nUse Postman's WebSocket request type (New → WebSocket) to connect.\n\nURL: ws://localhost:3000/stream?tenantId=1\n\nTo simulate the handshake, send these JSON messages in order:\n\n1. Connected event:\n{\"event\":\"connected\",\"protocol\":\"Call\",\"version\":\"1.0.0\"}\n\n2. Start event:\n{\"event\":\"start\",\"start\":{\"streamSid\":\"MZtest\",\"callSid\":\"CAtest\",\"tracks\":[\"inbound\"]}}\n\nThe server will open a connection to OpenAI Realtime and (if OPENAI_API_KEY is set) Sarah will begin speaking.\n\nNote: You will NOT hear audio — media payloads are base64 μ-law and meant for Twilio."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard (Next.js)",
+      "description": "Dashboard runs on port 3001. All routes below require a signed-in NextAuth session.\n\nTo authenticate in Postman:\n1. Open http://localhost:3001/login in your browser and sign in.\n2. Open DevTools → Application → Cookies → copy the value of 'next-auth.session-token'.\n3. In Postman, go to the request → Cookies → add a cookie for 'localhost' with name 'next-auth.session-token' and that value.\n4. All requests in this folder will then go through as authenticated.",
+      "item": [
+        {
+          "name": "GET /api/business-info",
+          "request": {
+            "method": "GET",
+            "url": "{{dashboard_url}}/api/business-info",
+            "description": "Returns business info for the current tenant.\nRequires auth session cookie (see folder description).\n\nExpected: 200 { business_hours, services, address, phone, extra_notes, custom_instructions, updated_at }\nIf not logged in: 401 { error: 'Unauthorized' }"
+          }
+        },
+        {
+          "name": "PUT /api/business-info",
+          "request": {
+            "method": "PUT",
+            "url": "{{dashboard_url}}/api/business-info",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessHours\": \"Monday–Friday 9am–6pm, Saturday 10am–4pm, Closed Sunday\",\n  \"services\": \"Swedish massage, deep tissue, sports massage, gift cards\",\n  \"address\": \"123 Main Street, Springfield\",\n  \"phone\": \"+15551234567\",\n  \"extraNotes\": \"Walk-ins welcome after 11am.\",\n  \"customInstructions\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Updates (upserts) business info for the current tenant.\nRequires auth session cookie.\n\nExpected: 200 with the updated row.\nAll fields are optional — only provided fields are updated."
+          }
+        },
+        {
+          "name": "POST /api/admin/tenants  (admin only)",
+          "request": {
+            "method": "POST",
+            "url": "{{dashboard_url}}/api/admin/tenants",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Clinic\",\n  \"twilioPhone\": \"+15551234567\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a new tenant. Only works if the signed-in user has isAdmin: true in their session.\n\nExpected: 303 redirect to /admin on success.\nIf not admin: 401 { error: 'Unauthorized' }\nIf name is missing: 400 { error: 'Name is required' }\n\nAlso accepts multipart/form-data with fields 'name' and 'twilioPhone'."
+          }
+        }
+      ]
+    }
+  ]
+}

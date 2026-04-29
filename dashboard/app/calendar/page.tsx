@@ -2,18 +2,11 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { getClinicTenantId } from "@/lib/clinic-tenant";
-import { getCalls, getAppointments } from "@/lib/db";
+import { getAppointments, getCalls } from "@/lib/db";
 import type { AppointmentRow } from "@/lib/db";
 import { getGoogleCalendarEventsForMonth } from "@/lib/google-calendar";
 import { CalendarView } from "@/components/CalendarView";
 import { CallsSummaryList } from "@/components/CallsSummaryList";
-
-function formatDate(d: Date | string) {
-  return new Date(d).toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 function appointmentsByDay(appointments: AppointmentRow[]): Map<string, AppointmentRow[]> {
   const map = new Map<string, AppointmentRow[]>();
@@ -26,7 +19,14 @@ function appointmentsByDay(appointments: AppointmentRow[]): Map<string, Appointm
   return map;
 }
 
-export default async function InboxPage() {
+function formatDate(d: Date | string) {
+  return new Date(d).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+export default async function CalendarPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return (
@@ -37,10 +37,10 @@ export default async function InboxPage() {
             Please sign in first
           </h1>
           <p className="mt-3 text-sm leading-7 text-slate-600">
-            You need to sign in to open the smart inbox.
+            You need to sign in to view the appointment calendar.
           </p>
           <div className="mt-6">
-            <Link href="/login?callbackUrl=%2Finbox" className="app-button-primary">
+            <Link href="/login?callbackUrl=%2Fcalendar" className="app-button-primary">
               Go to sign in
             </Link>
           </div>
@@ -51,54 +51,36 @@ export default async function InboxPage() {
 
   const tenantId = getClinicTenantId();
   const now = new Date();
-  const [calls, appointments, googleEvents] = await Promise.all([
+  const [appointments, calls, googleEvents] = await Promise.all([
+    getAppointments(tenantId, 120),
     getCalls(tenantId, 30),
-    getAppointments(tenantId, 80),
     getGoogleCalendarEventsForMonth(tenantId, now.getFullYear(), now.getMonth()),
   ]);
   const byDay = appointmentsByDay(appointments);
+  const sortedChronological = [...appointments].sort(
+    (a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+  );
 
   return (
     <main className="app-shell space-y-6">
       <section className="app-panel px-6 py-8 sm:px-8">
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div>
-            <p className="app-label">Smart inbox</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-900" style={{ fontFamily: "var(--font-display)" }}>
-              Calls, summaries, and bookings in one place.
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600">
-              Review what Sarah handled on the phone, see how those conversations turned into
-              appointments, and keep an eye on the daily schedule without leaving the dashboard.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <div className="app-panel-soft p-4">
-              <p className="app-label">Call summaries</p>
-              <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900">{calls.length}</p>
-            </div>
-            <div className="app-panel-soft p-4">
-              <p className="app-label">Appointments</p>
-              <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900">{appointments.length}</p>
-            </div>
-            <div className="app-panel-soft p-4">
-              <p className="app-label">Latest booking</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
-                {appointments[0] ? formatDate(appointments[0].scheduled_at) : "No bookings yet"}
-              </p>
-            </div>
-          </div>
-        </div>
+        <p className="app-label">Schedule</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-slate-900" style={{ fontFamily: "var(--font-display)" }}>
+          Appointment calendar
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+          Scan upcoming bookings at a glance and review the call context that led to each
+          appointment.
+        </p>
       </section>
 
       <CalendarView appointments={appointments} byDay={byDay} googleEvents={googleEvents} />
 
       <section className="app-panel p-6 sm:p-8">
         <div className="mb-5">
-          <p className="app-label">Appointment list</p>
+          <p className="app-label">Timeline</p>
           <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-900">
-            Scheduled appointments
+            Upcoming appointments
           </h3>
         </div>
 
@@ -106,7 +88,7 @@ export default async function InboxPage() {
           <p className="app-panel-soft p-4 text-sm text-slate-500">No appointments yet.</p>
         ) : (
           <ul className="space-y-3">
-            {appointments.map((a: AppointmentRow) => (
+            {sortedChronological.map((a) => (
               <li key={a.id} className="app-panel-soft p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -117,9 +99,7 @@ export default async function InboxPage() {
                   </div>
                 </div>
                 {a.call_summary?.trim() ? (
-                  <p className="mt-3 border-t border-slate-200 pt-3 text-sm leading-7 text-slate-600">
-                    {a.call_summary.trim()}
-                  </p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{a.call_summary.trim()}</p>
                 ) : null}
               </li>
             ))}
